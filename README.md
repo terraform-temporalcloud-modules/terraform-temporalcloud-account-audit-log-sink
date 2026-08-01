@@ -6,11 +6,6 @@
 Terraform module which configures a [Temporal Cloud](https://temporal.io/cloud) account audit log sink,
 streaming control-plane audit events to Amazon Kinesis or Google Cloud Pub/Sub.
 
-Both badges report the state of `main`. **CI** covers formatting, linting, documentation and
-`terraform validate`, and runs on every pull request and again after merge. **Apply Tests** exercises
-this module against a live Temporal Cloud account, weekly and on demand — for this module it creates
-nothing, for the reasons in [tests/README.md](tests/README.md).
-
 ## The sink is account-wide
 
 Read this before anything else. It is the property that makes this module different from the rest of
