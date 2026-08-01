@@ -67,6 +67,10 @@ run "rejects_bare_kinesis_stream_name" {
   ]
 }
 
+// destination_uri is left valid on purpose. An empty URI also fails the `arn:`
+// rule above, so emptying it would leave this block green even if the
+// non-empty rule were deleted. region and role_name are reachable only by this
+// rule.
 run "rejects_empty_kinesis_fields" {
   command = plan
 
@@ -74,9 +78,9 @@ run "rejects_empty_kinesis_fields" {
     sink_name = "tftest-empty-kinesis"
 
     kinesis = {
-      destination_uri = ""
-      region          = "us-east-1"
-      role_name       = "arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer"
+      destination_uri = "arn:aws:kinesis:us-east-1:111122223333:stream/temporal-audit-logs"
+      region          = ""
+      role_name       = ""
     }
   }
 

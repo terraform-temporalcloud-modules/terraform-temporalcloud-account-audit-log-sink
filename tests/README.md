@@ -38,29 +38,76 @@ weight:
 
 A permanently-red test would be worse than the gap, so there is none.
 
-### What a maintainer would need in order to add one
+## External access required to make this suite real
 
-- A **dedicated, disposable Temporal Cloud account** whose audit log nobody depends on. Reason 1 makes
-  this non-negotiable; it cannot be a shared or production account, nor the account the rest of this
-  module family tests against.
-- An API key for that account belonging to an **Account Owner or Global Administrator**.
-- Either the AWS side (stream, role, external ID) or the GCP side (topic, service account, both IAM
-  bindings) standing permanently, created out of band and referenced by ARN or email — not created by
-  the test.
-- The destination identifiers supplied as test variables, since they are account-specific.
+The full list of what a maintainer would have to hold before a sink could be created by an automated
+test. None of it can be stood up from inside `terraform test`, and two items are obtainable only
+through the Temporal Cloud UI.
 
-`setup/` already generates a unique `sink_name` for that test, so it does not need rebuilding.
-`sink_name` cannot be changed in place, which is exactly why a fixed name would be awkward.
+**Temporal Cloud**
+
+1. A **dedicated, disposable account** whose audit log nobody depends on. Reason 1 above makes this
+   non-negotiable: not a shared or production account, and not the account the rest of this module
+   family tests against. This is the hard blocker — no amount of cloud infrastructure substitutes
+   for it.
+2. An API key for that account belonging to an **Account Owner or Global Administrator**. Audit log
+   configuration is an account-level setting.
+3. For Kinesis, the **`sts:ExternalId` value Temporal issues to that account**. Not published and not
+   exposed by any API; the Cloud UI hands over a CloudFormation template prefilled with it.
+4. For Pub/Sub, the **addresses of Temporal's own service accounts**, which need
+   `roles/iam.serviceAccountTokenCreator` on your service account. Also unpublished, also UI-only,
+   and account-specific.
+
+**Amazon Kinesis** — standing permanently, created out of band and referenced by ARN, not created by
+the test:
+
+1. A **Kinesis data stream**; `kinesis.destination_uri` takes its ARN.
+2. An **IAM role** whose trust policy names Temporal Cloud's audit log delivery principals with the
+   `sts:ExternalId` condition from item 3, and whose permissions policy allows `kinesis:PutRecord`,
+   `kinesis:PutRecords`, `kinesis:DescribeStreamSummary` and `kinesis:UpdateShardCount` on that
+   stream. Do not hand-write it: Temporal publishes
+   [`iam-role-for-temporal-audit-logs.yaml`](https://temporal-auditlogs-config.s3.us-west-2.amazonaws.com/cloudformation/iam-role-for-temporal-audit-logs.yaml),
+   which is the authoritative source for the current principal list. The root
+   [README](../README.md) covers this in full.
+
+**Google Cloud Pub/Sub** — likewise standing permanently, referenced by email:
+
+1. A **Pub/Sub topic**; `pubsub.topic_name` takes its bare name.
+2. A **service account in the same project**, with `roles/pubsub.publisher` on the topic and
+   `roles/iam.serviceAccountTokenCreator` granted to Temporal's service accounts from item 4.
+   Temporal maintains
+   [`terraform-modules//modules/auditlog-sa`](https://github.com/temporalio/terraform-modules/tree/main/modules/auditlog-sa)
+   for exactly this.
+
+**Then, in this repository:** supply the destination identifiers as test variables, since they are
+account-specific. `setup/` already generates a unique `sink_name`, so it does not need rebuilding —
+`sink_name` cannot be changed in place, which is why a fixed name would be awkward.
+
+### What stays unverifiable until that access exists
+
+- **That Temporal Cloud accepts any sink configuration.** No test reaches the create path.
+- **Which form `role_name` takes.** The provider's example uses a full ARN, Temporal's CloudFormation
+  template uses a bare name, Temporal documents neither, and so the module enforces neither. Only an
+  apply settles it.
+- **Any value the API returns.** Every assertion is on a `try()` fallback or a rejected plan, so
+  `account_audit_log_sink_id`, `_kinesis` and `_pubsub` are unproven beyond their fallbacks — in
+  particular the Pub/Sub attributes Temporal Cloud *derives* from the email are never observed.
+- **`enabled` and `timeouts` end to end.** `local/` proves they type-check and nothing more.
 
 ## What the test files do cover
 
-| File | Covers |
-| --- | --- |
-| `disabled.tftest.hcl` | `create_account_audit_log_sink = false` creates nothing and every output falls back through `try()` |
-| `destination.tftest.hcl` | Every plan-time rule, at `command = plan`: exactly one destination, the Kinesis ARN and non-empty field checks, the bare Pub/Sub topic name, and the Pub/Sub service account either/or |
+| File | Covers | Creates |
+| --- | --- | --- |
+| `disabled.tftest.hcl` | `create_account_audit_log_sink = false` declares no resource and every output falls back through `try()` | nothing (applies an empty plan) |
+| `destination.tftest.hcl` | Every plan-time rule, at `command = plan`: exactly one destination, the Kinesis ARN and non-empty field checks, the bare Pub/Sub topic name, and the Pub/Sub service account either/or | nothing |
 
 Neither file creates a resource or changes account state. Both still configure the provider, which is
 why they need `TEMPORAL_CLOUD_API_KEY`.
+
+Each case in `destination.tftest.hcl` is aimed at exactly one rule and leaves the rest satisfied, so
+neutralising any single rule turns exactly one run block red. `rejects_empty_kinesis_fields` empties
+`region` and `role_name` rather than `destination_uri` for that reason: an empty URI also fails the
+`arn:` rule, which would leave the block green even with the non-empty rule deleted.
 
 `destination.tftest.hcl` is worth more than it looks. The Pub/Sub service account rule in particular is
 invisible in the provider schema — all three attributes are optional — and omitting them all fails at
