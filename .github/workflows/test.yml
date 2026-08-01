@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
   schedule:
     # Mondays 06:00 UTC.
-    - cron: '0 6 * * 1'
+    - cron: '0 13 * * 1'
 
 # Serialize. cancel-in-progress MUST stay false: the tests create nothing today,
 # but the moment one does, cancelling mid-apply would abandon a real sink with no
