@@ -15,7 +15,7 @@ variable "sink_name" {
 }
 
 variable "enabled" {
-  description = "Controls whether the sink delivers audit logs. Setting this to `false` keeps the sink and its destination configuration in place but stops delivery; it does not remove the sink. Distinct from `create_account_audit_log_sink`, which controls whether the sink exists at all. Defaults to whatever Temporal Cloud applies when omitted"
+  description = "Controls whether the sink delivers audit logs. Setting this to `false` keeps the sink and its destination configuration in place but stops delivery; it does not remove the sink. Distinct from `create_account_audit_log_sink`, which controls whether the sink exists at all. Defaults to `true` when omitted"
   type        = bool
   default     = null
 }
@@ -37,7 +37,7 @@ variable "timeouts" {
 ################################################################################
 
 variable "kinesis" {
-  description = "Amazon Kinesis destination. `destination_uri` is the ARN of the Kinesis data stream Temporal Cloud writes to, `region` is the AWS region that stream is in, and `role_name` is the IAM role Temporal Cloud assumes in order to write to it — supply the role's full ARN, because the Kinesis destination carries no separate field for your AWS account ID. The stream and the role must already exist and the role must trust Temporal Cloud's delivery principals; see the README prerequisites. Mutually exclusive with `pubsub`"
+  description = "Amazon Kinesis destination. `destination_uri` is the ARN of the Kinesis data stream Temporal Cloud writes to, `region` is the AWS region that stream is in, and `role_name` is the IAM role Temporal Cloud assumes in order to write to it. Temporal does not document whether `role_name` takes a full role ARN or a bare role name — the provider's example uses an ARN, Temporal's CloudFormation template uses a bare name — so neither form is enforced here. The stream and the role must already exist and the role must trust Temporal Cloud's delivery principals; see the README prerequisites. Mutually exclusive with `pubsub`"
   type = object({
     destination_uri = string
     region          = string

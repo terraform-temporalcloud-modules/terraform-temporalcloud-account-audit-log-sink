@@ -93,10 +93,13 @@ Each of these type-checks fine and would otherwise fail only at apply.
 3. **`sink_name` carries `RequiresReplace`.** Editing it destroys and recreates the sink rather than
    erroring, which for an account-wide compliance control is a much bigger deal than the plan diff
    suggests. Documented on the variable.
-4. **`role_name` and `destination_uri` want ARNs.** The provider parses neither and passes both
-   through verbatim, so a bare stream name or role name reaches the API and fails there. The module
-   checks `destination_uri` starts with `arn:`; `role_name` is documented but not pattern-checked,
-   since the API contract for it is not published.
+4. **`destination_uri` wants an ARN; `role_name`'s accepted form is genuinely unknown.** The provider
+   parses neither and passes both through verbatim. `destination_uri` is unambiguous — the schema and
+   Temporal's docs both call it the stream ARN — so the module checks it starts with `arn:`.
+   `role_name` is not: the provider's registry example passes a full role ARN, while Temporal's
+   CloudFormation template and Cloud UI take a bare role name, and Temporal documents neither as the
+   contract. The module therefore does not pattern-check it, and the README says so rather than
+   picking a side. If an apply test ever settles this, record the answer here.
 
 ### Why the exactly-one check is a precondition, not a variable validation
 

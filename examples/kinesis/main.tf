@@ -33,8 +33,10 @@ module "audit_log_sink" {
     destination_uri = var.kinesis_stream_arn
     region          = var.kinesis_region
 
-    # The role's full ARN. A Kinesis destination has no separate field for your
-    # AWS account ID, so the account has to travel in this value.
+    # The provider's own example passes a full role ARN, so that is what this
+    # example does. Temporal's CloudFormation template and the Cloud UI work in
+    # bare role names instead, and Temporal does not document which form the API
+    # expects — see the README in this directory.
     role_name = var.kinesis_role_arn
   }
 

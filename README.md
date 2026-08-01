@@ -16,10 +16,12 @@ nothing, for the reasons in [tests/README.md](tests/README.md).
 Read this before anything else. It is the property that makes this module different from the rest of
 the family.
 
-- **An account has one Audit Log Integration.** Temporal Cloud's UI exposes exactly one, and every
-  operation on it — set up, edit, delete — acts on that one. Two Terraform configurations pointed at
-  the same Temporal Cloud account will therefore fight over it, each apply overwriting the other.
-  Own it in exactly one place.
+- **Temporal Cloud presents one Audit Log Integration per account.** The UI exposes exactly one, and
+  every documented operation on it — set up, edit, delete — acts on that one. The Cloud API is shaped
+  for more than one (`GetAccountAuditLogSinks` is paginated and returns a list), but Temporal
+  publishes no limit and no supported multi-sink workflow, so treat the sink as an account-wide
+  singleton. Two Terraform configurations pointed at the same Temporal Cloud account will fight over
+  it, each apply overwriting the other. Own it in exactly one place.
 - **`terraform destroy` stops audit logging for the entire account.** Not for a namespace, not for
   this configuration — the account. For most organisations running audit logs, that is a compliance
   control rather than a convenience, and removing it is a reportable event. Terraform's own
@@ -82,7 +84,8 @@ module "audit_log_sink" {
     destination_uri = "arn:aws:kinesis:us-east-1:111122223333:stream/temporal-audit-logs"
     region          = "us-east-1"
 
-    # The role's full ARN, despite the attribute being called role_name.
+    # The provider's example uses a full role ARN; Temporal's CloudFormation
+    # template uses a bare role name. See Notes — neither form is enforced.
     role_name = "arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer"
   }
 }
@@ -152,8 +155,8 @@ fails on permissions rather than on anything Terraform can catch.
    Cloud UI hands you a copy prefilled with your external ID. The external ID's value is not
    published — Temporal provides it.
 
-   `kinesis:UpdateShardCount` is in Temporal's own template and usually draws a question in security
-   review: Temporal scales the stream to match audit log volume.
+   `kinesis:UpdateShardCount` usually draws a question in security review. It is granted by Temporal's
+   own template; Temporal does not document what it uses the permission for.
 
 Kinesis rate limits apply to the stream, so size it for the account's control-plane event volume.
 
@@ -181,9 +184,13 @@ Behaviours worth knowing before you plan:
 
 - **Exactly one of `kinesis` or `pubsub`.** A sink has a single destination. The module rejects zero or
   two at plan time, naming the variables; the provider enforces the same rule independently.
-- **`role_name` wants an ARN.** The attribute is named for the API field, but a Kinesis destination
-  carries no separate AWS account ID, so the account has to travel inside this value. A bare role name
-  gives Temporal Cloud nothing to assume.
+- **`role_name`: the two authoritative sources disagree, so this module enforces neither form.** The
+  provider passes the value through unparsed. Its
+  [own example](https://registry.terraform.io/providers/temporalio/temporalcloud/latest/docs/resources/account_audit_log_sink)
+  sets a full ARN (`arn:aws:iam::123456789012:role/TemporalCloudKinesisRole`), while Temporal's
+  CloudFormation template and the Cloud UI both work in bare role names (`Temporal-Cloud-Log-Writer`).
+  Temporal does not document which form the API expects. The examples here follow the provider's ARN
+  form; if the role fails to resolve on create, try the bare name.
 - **`destination_uri` wants the stream ARN**, not a bare stream name and not a `kinesis://` URI.
 - **`topic_name` wants the bare topic name**, not `projects/<project>/topics/<topic>`.
 - **The Pub/Sub service account attributes are an either/or.** `service_account_email`,
@@ -192,8 +199,10 @@ Behaviours worth knowing before you plan:
   the project. This module catches it at plan time.
 - **Logs are not instant.** Expect the first records within about ten minutes of a successful apply.
   An empty stream immediately after apply is not evidence of a misconfiguration.
-- **Temporal retains audit log data for up to 30 days**, and retrieving history within that window is
-  a support request rather than an API call. The sink is how you keep it yourself.
+- **Temporal retains audit log data for up to 30 days.** Within that window it is readable from the
+  Cloud UI and from the
+  [Cloud Ops API](https://docs.temporal.io/cloud/audit-logs#audit-log-api), and Temporal
+  will also retrieve it on request. Past 30 days the sink is the only copy.
 
 ## Examples
 
@@ -209,9 +218,9 @@ silently; both READMEs link Temporal's own templates instead.
 ## Managing several sinks
 
 The [`wrappers`](wrappers) submodule creates several sinks from one call, for use with Terragrunt or
-anywhere a `for_each` on the module block is awkward. Because a Temporal Cloud account holds one audit
-log sink, this is only meaningful when each item targets a **different account** through its own
-provider configuration:
+anywhere a `for_each` on the module block is awkward. Because Temporal Cloud presents a single Audit
+Log Integration per account, this is only meaningful when each item targets a **different account**
+through its own provider configuration:
 
 ```hcl
 module "audit_log_sinks" {
@@ -265,8 +274,8 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_create_account_audit_log_sink"></a> [create\_account\_audit\_log\_sink](#input\_create\_account\_audit\_log\_sink) | Controls if the account audit log sink should be created. Set to `false` to disable the module without removing the call | `bool` | `true` | no |
-| <a name="input_enabled"></a> [enabled](#input\_enabled) | Controls whether the sink delivers audit logs. Setting this to `false` keeps the sink and its destination configuration in place but stops delivery; it does not remove the sink. Distinct from `create_account_audit_log_sink`, which controls whether the sink exists at all. Defaults to whatever Temporal Cloud applies when omitted | `bool` | `null` | no |
-| <a name="input_kinesis"></a> [kinesis](#input\_kinesis) | Amazon Kinesis destination. `destination_uri` is the ARN of the Kinesis data stream Temporal Cloud writes to, `region` is the AWS region that stream is in, and `role_name` is the IAM role Temporal Cloud assumes in order to write to it — supply the role's full ARN, because the Kinesis destination carries no separate field for your AWS account ID. The stream and the role must already exist and the role must trust Temporal Cloud's delivery principals; see the README prerequisites. Mutually exclusive with `pubsub` | <pre>object({<br/>    destination_uri = string<br/>    region          = string<br/>    role_name       = string<br/>  })</pre> | `null` | no |
+| <a name="input_enabled"></a> [enabled](#input\_enabled) | Controls whether the sink delivers audit logs. Setting this to `false` keeps the sink and its destination configuration in place but stops delivery; it does not remove the sink. Distinct from `create_account_audit_log_sink`, which controls whether the sink exists at all. Defaults to `true` when omitted | `bool` | `null` | no |
+| <a name="input_kinesis"></a> [kinesis](#input\_kinesis) | Amazon Kinesis destination. `destination_uri` is the ARN of the Kinesis data stream Temporal Cloud writes to, `region` is the AWS region that stream is in, and `role_name` is the IAM role Temporal Cloud assumes in order to write to it. Temporal does not document whether `role_name` takes a full role ARN or a bare role name — the provider's example uses an ARN, Temporal's CloudFormation template uses a bare name — so neither form is enforced here. The stream and the role must already exist and the role must trust Temporal Cloud's delivery principals; see the README prerequisites. Mutually exclusive with `pubsub` | <pre>object({<br/>    destination_uri = string<br/>    region          = string<br/>    role_name       = string<br/>  })</pre> | `null` | no |
 | <a name="input_pubsub"></a> [pubsub](#input\_pubsub) | Google Cloud Pub/Sub destination. `topic_name` is the bare Pub/Sub topic name — not a `projects/<project>/topics/<topic>` path. The remaining attributes identify the service account in your project that Temporal Cloud impersonates to publish: supply `service_account_email`, or both `service_account_id` and `gcp_project_id`. Supplying the email alone is enough, because the other two are derived from it. The topic and the service account must already exist, with the IAM bindings described in the README prerequisites. Mutually exclusive with `kinesis` | <pre>object({<br/>    topic_name            = string<br/>    gcp_project_id        = optional(string)<br/>    service_account_email = optional(string)<br/>    service_account_id    = optional(string)<br/>  })</pre> | `null` | no |
 | <a name="input_sink_name"></a> [sink\_name](#input\_sink\_name) | Name of the audit log sink. Cannot be changed in place: editing it destroys the sink and creates a replacement, which interrupts audit log delivery for the whole account while that happens. Required unless `create_account_audit_log_sink` is `false` | `string` | `""` | no |
 | <a name="input_timeouts"></a> [timeouts](#input\_timeouts) | Create and delete timeouts, as duration strings such as `30s` or `2h45m` | <pre>object({<br/>    create = optional(string)<br/>    delete = optional(string)<br/>  })</pre> | `{}` | no |

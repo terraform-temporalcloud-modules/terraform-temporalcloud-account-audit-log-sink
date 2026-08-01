@@ -12,6 +12,6 @@ variable "kinesis_region" {
 }
 
 variable "kinesis_role_arn" {
-  description = "ARN of the IAM role Temporal Cloud assumes to write to the stream, for example `arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer`"
+  description = "IAM role Temporal Cloud assumes to write to the stream, as a full ARN following the provider's own example, for example `arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer`. Temporal's CloudFormation template uses a bare role name instead and the accepted form is undocumented — if the role fails to resolve on create, try `Temporal-Cloud-Log-Writer`"
   type        = string
 }

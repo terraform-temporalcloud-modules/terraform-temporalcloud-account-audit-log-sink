@@ -18,15 +18,15 @@ soon as the variable surface changes.
 This is the significant gap in this module's coverage and it is deliberate. Two reasons, in order of
 weight:
 
-1. **Creating a sink mutates account-wide compliance state.** A Temporal Cloud account has one Audit
-   Log Integration. A test that creates one does not add an isolated resource alongside the account's
-   real configuration — it *is* the account's configuration, replacing whatever was there and
-   redirecting the account's audit trail for the duration of the run. Teardown then deletes it,
-   leaving the account with no audit logging at all rather than with what it had before. There is no
-   scoping mechanism that would confine the blast radius: no per-namespace variant, no test mode. For
-   any account that someone relies on, that is unacceptable regardless of how carefully the test is
-   written, and it is why no amount of extra infrastructure would make the current test account a
-   valid target.
+1. **Creating a sink mutates account-wide compliance state.** Temporal Cloud presents a single Audit
+   Log Integration per account. A test that creates one does not add an isolated resource alongside
+   the account's real configuration — it *is* the account's configuration, replacing whatever was
+   there and redirecting the account's audit trail for the duration of the run. Teardown then
+   deletes it, leaving the account with no audit logging at all rather than what it had before.
+   There is no scoping mechanism that would confine the blast radius: no per-namespace variant, no
+   test mode. For any account that someone relies on, that is unacceptable regardless of how
+   carefully the test is written, and it is why no amount of extra infrastructure would make the
+   current test account a valid target.
 
 2. **It needs real cloud infrastructure the test account does not have.** For Kinesis: a data stream,
    plus an IAM role in an AWS account whose trust policy names Temporal Cloud's delivery principals

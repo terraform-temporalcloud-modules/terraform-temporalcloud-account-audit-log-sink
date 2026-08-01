@@ -30,9 +30,13 @@ side is managed here.
    Use it rather than hand-writing the trust policy: the principal list is Temporal's to change, and
    the Temporal Cloud UI generates a copy of the template prefilled with your external ID.
 
-   `kinesis:UpdateShardCount` usually draws a question in security review. It is in Temporal's own
-   template: Temporal scales the stream to match audit log volume.
-3. **Account Owner or Global Administrator** on the Temporal Cloud account. Lesser roles cannot
+   `kinesis:UpdateShardCount` usually draws a question in security review. It is granted by Temporal's
+   own template; Temporal does not document what it uses the permission for.
+3. **A decision about `kinesis_role_arn`.** The provider's example passes a full role ARN and this
+   example follows it, but Temporal's CloudFormation template and the Cloud UI both work in bare role
+   names. Temporal does not document which the API accepts, and the module enforces neither — if the
+   role fails to resolve on create, pass `Temporal-Cloud-Log-Writer` instead.
+4. **Account Owner or Global Administrator** on the Temporal Cloud account. Lesser roles cannot
    configure an Audit Log Integration.
 
 The prerequisites are not created here on purpose. Baking Temporal's delivery-role ARNs into a
@@ -86,7 +90,7 @@ No resources.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_kinesis_region"></a> [kinesis\_region](#input\_kinesis\_region) | AWS region the Kinesis stream is in, for example `us-east-1` | `string` | n/a | yes |
-| <a name="input_kinesis_role_arn"></a> [kinesis\_role\_arn](#input\_kinesis\_role\_arn) | ARN of the IAM role Temporal Cloud assumes to write to the stream, for example `arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer` | `string` | n/a | yes |
+| <a name="input_kinesis_role_arn"></a> [kinesis\_role\_arn](#input\_kinesis\_role\_arn) | IAM role Temporal Cloud assumes to write to the stream, as a full ARN following the provider's own example, for example `arn:aws:iam::111122223333:role/Temporal-Cloud-Log-Writer`. Temporal's CloudFormation template uses a bare role name instead and the accepted form is undocumented — if the role fails to resolve on create, try `Temporal-Cloud-Log-Writer` | `string` | n/a | yes |
 | <a name="input_kinesis_stream_arn"></a> [kinesis\_stream\_arn](#input\_kinesis\_stream\_arn) | ARN of the Kinesis data stream Temporal Cloud writes audit logs to, for example `arn:aws:kinesis:us-east-1:111122223333:stream/temporal-audit-logs` | `string` | n/a | yes |
 
 ## Outputs

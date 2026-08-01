@@ -9,10 +9,10 @@ locals {
 ################################################################################
 # Account audit log sink
 #
-# An account has at most ONE audit log sink. This module therefore manages an
-# account-wide singleton: two configurations pointed at the same account will
-# fight over it, and destroying it stops audit log delivery for the whole
-# account.
+# Temporal Cloud presents a single Audit Log Integration per account, so this
+# module manages what is effectively an account-wide singleton: two
+# configurations pointed at the same account will fight over it, and destroying
+# it stops audit log delivery for the whole account.
 #
 # `kinesis` and `pubsub` are nested attributes in the provider schema rather than
 # blocks, so they are assigned straight from their variables and a null value
