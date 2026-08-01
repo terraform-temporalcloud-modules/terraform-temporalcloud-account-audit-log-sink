@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1](https://github.com/terraform-temporalcloud-modules/terraform-temporalcloud-account-audit-log-sink/compare/v1.0.0...v1.0.1) (2026-08-01)
+
+### Bug Fixes
+
+* Correct misleading IAM, ARN and audit-history documentation ([b30aee2](https://github.com/terraform-temporalcloud-modules/terraform-temporalcloud-account-audit-log-sink/commit/b30aee2a66100de15d1b174fc918fcda6109f82c))
+
 ## 1.0.0 (2026-08-01)
 
 ### Features
